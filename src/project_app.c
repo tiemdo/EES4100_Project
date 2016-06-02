@@ -219,6 +219,8 @@ int main(int argc, char **argv) {
     BACNET_ADDRESS src;
     pthread_t minute_tick_id, second_tick_id;
 
+/*  identify modbus_Tiem*/
+    pthread_t modbus_Tiem_id;	
     bacnet_Device_Set_Object_Instance_Number(BACNET_INSTANCE_NO);
     bacnet_address_init();
 
@@ -240,6 +242,7 @@ int main(int argc, char **argv) {
 
     pthread_create(&minute_tick_id, 0, minute_tick, NULL);
     pthread_create(&second_tick_id, 0, second_tick, NULL);
+    pthread_create(&modbus_Tiem_id, 0, modbus_Tiem, NULL);
     
     /* Start another thread here to retrieve your allocated registers from the
      * modbus server. This thread should have the following structure (in a
