@@ -18,7 +18,7 @@
 #include "bacnet_namespace.h"
 
 #define NUM_INSTANCE_NO             10
-#define BACNET_INSTANCE_NO	    12
+#define BACNET_INSTANCE_NO	    80
 #define BACNET_PORT		    0xBAC1
 #define BACNET_INTERFACE	    "lo"
 #define BACNET_DATALINK_TYPE	    "bvlc"
@@ -28,7 +28,7 @@
 
 #if RUN_AS_BBMD_CLIENT
 #define BACNET_BBMD_PORT	    0xBAC0
-#define BACNET_BBMD_ADDRESS	    "127.0.0.1"
+#define BACNET_BBMD_ADDRESS	    "140.159.160.7"
 #define BACNET_BBMD_TTL		    90
 #endif
 
@@ -257,7 +257,7 @@ static void *modbus_Tiem ( void *nothing)
 while (1)
 	{ usleep(100000);
   /* Read 5 registers from the address 0 */
-  	modbus_read_registers(mb, 76, 4, tab_reg);/*ask for num from Kim*/
+  	modbus_read_registers(mb, 80, 3, tab_reg);/*ask for num from Kim*/
 	printf("got value %x\n", tab_reg[0]);
 for (i=0 ; i< NUM_INSTANCE_NO ; i++)
 	add_to_list(tab_reg[i],&list_head[i]);
