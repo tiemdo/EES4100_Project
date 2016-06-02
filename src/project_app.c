@@ -17,6 +17,7 @@
 #include <libbacnet/ai.h>
 #include "bacnet_namespace.h"
 
+#define NUM_INSTANCE_NO             10
 #define BACNET_INSTANCE_NO	    12
 #define BACNET_PORT		    0xBAC1
 #define BACNET_INTERFACE	    "lo"
@@ -36,8 +37,7 @@
  * BACnet client will print "Successful match" whenever it is able to receive
  * this set of data. Note that you will not have access to the RANDOM_DATA_POOL
  * for your final submitted application. */
-static uint16_t test_data[] = {
-    0xA4EC, 0x6E39, 0x8740, 0x1065, 0x9134, 0xFC8C };
+
 #define NUM_TEST_DATA (sizeof(test_data)/sizeof(test_data[0]))
 /* start adding linked listed and thread*/
 
@@ -50,7 +50,7 @@ struct list_object_s {
 static pthread_mutex_t list_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t list_data_ready = PTHREAD_COND_INITIALIZER;
-static struct list_object_s *list_head;
+static struct list_object_s *list_head[NUM_INSTANCE_NO];;
 
 
 static void add_to_list(uint16_t input,struct list_object_s **list_head ) {
@@ -100,12 +100,14 @@ static struct list_object_s *list_get_first(struct list_object_s **list_head) {
 static int Update_Analog_Input_Read_Property(
 		BACNET_READ_PROPERTY_DATA *rpdata) {
 
-    static int index;
+    struct list_object_s *cur_object;
+	        /* Release lock, all further accesses are not shared */
     int instance_no = bacnet_Analog_Input_Instance_To_Index(
 			rpdata->object_instance);
 
     if (rpdata->object_property != bacnet_PROP_PRESENT_VALUE) goto not_pv;
-
+    if (list_head[instance_no] == NULL) goto not_pv;
+    cur_object = list_get_first(&list_head[instance_no]);
     printf("AI_Present_Value request for instance %i\n", instance_no);
     /* Update the values to be sent to the BACnet client here.
      * The data should be read from the head of a linked list. You are required
@@ -116,12 +118,11 @@ static int Update_Analog_Input_Read_Property(
      *     Second argument: data to be sent
      *
      * Without reconfiguring libbacnet, a maximum of 4 values may be sent */
-    bacnet_Analog_Input_Present_Value_Set(0, test_data[index++]);
+     bacnet_Analog_Input_Present_Value_Set(instance_no,  cur_object->modbus_data);
     /* bacnet_Analog_Input_Present_Value_Set(1, test_data[index++]); */
     /* bacnet_Analog_Input_Present_Value_Set(2, test_data[index++]); */
     
-    if (index == NUM_TEST_DATA) index = 0;
-
+  
 not_pv:
     return bacnet_Analog_Input_Read_Property(rpdata);
 }
@@ -250,14 +251,16 @@ static void *modbus_Tiem ( void *nothing)
 {
    modbus_t *mb;
    uint16_t tab_reg[32];
-   mb = modbus_new_tcp("127.0.0.1", 502);
+   int i; 	
+   mb = modbus_new_tcp("140.159.153.159", 502);
    modbus_connect(mb);
 while (1)
 	{ usleep(100000);
   /* Read 5 registers from the address 0 */
-  	modbus_read_registers(mb, 12, 1, tab_reg);/*ask for num from Kim*/
+  	modbus_read_registers(mb, 76, 4, tab_reg);/*ask for num from Kim*/
 	printf("got value %x\n", tab_reg[0]);
-
+for (i=0 ; i< NUM_INSTANCE_NO ; i++)
+	add_to_list(tab_reg[i],&list_head[i]);
 		
 }  
   modbus_close(mb);
@@ -266,7 +269,6 @@ while (1)
   return (nothing);/* this statement make no sense but keep compile running*/
 }
 /* end modbus com */
-
 
 int main(int argc, char **argv) {
     uint8_t rx_buf[bacnet_MAX_MPDU];
