@@ -39,8 +39,63 @@
 static uint16_t test_data[] = {
     0xA4EC, 0x6E39, 0x8740, 0x1065, 0x9134, 0xFC8C };
 #define NUM_TEST_DATA (sizeof(test_data)/sizeof(test_data[0]))
+/* start adding linked listed and thread*/
 
+struct list_object_s {
+    uint16_t modbus_data;                   /* 8 bytes */
+    struct list_object_s *next;     /* 8 bytes */
+};
+/* list_head is initialised to NULL on application launch as it is located in 
+ * the .bss. list_head must be accessed with list_lock held */
+static pthread_mutex_t list_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t timer_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t list_data_ready = PTHREAD_COND_INITIALIZER;
+static struct list_object_s *list_head;
+
+
+static void add_to_list(uint16_t input,struct list_object_s **list_head ) {
+    /* Allocate memory */
+    struct list_object_s *last_item;
+printf("Allocating memory\n");
+    struct list_object_s *new_item = malloc(sizeof(struct list_object_s));
+    if (!new_item) {
+        fprintf(stderr, "Malloc failed\n");
+        exit(1);
+    }
+
+    /* Set up the object */
+    new_item->modbus_data = input;
+    new_item->next = NULL;
+
+    /* list_head is shared between threads, need to lock before access */
+    pthread_mutex_lock(&list_lock);
+
+    if (*list_head == NULL) {
+        /* Adding the first object */
+        *list_head = new_item;
+    } else {
+        /* Adding the nth object */
+        last_item = *list_head;
+        while (last_item->next) last_item = last_item->next;
+        last_item->next = new_item;
+    }
+
+    /* Inform print_and_free that data is available */
+    pthread_cond_signal(&list_data_ready);
+    /* Release shared data lock */
+    pthread_mutex_unlock(&list_lock);
+}
+
+static struct list_object_s *list_get_first(struct list_object_s **list_head) {
+    struct list_object_s *first_item;
+
+    first_item = *list_head;
+    *list_head = (*list_head)->next;
+
+    return first_item;
+}
+
+/* end of adding linked list and thread */
 
 static int Update_Analog_Input_Read_Property(
 		BACNET_READ_PROPERTY_DATA *rpdata) {
